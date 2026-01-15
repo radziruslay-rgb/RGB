@@ -3,68 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RGB Quest</title>
+    <title>Neon Snake</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app">
       <header class="header">
         <div>
-          <p class="eyebrow">RGB Quest</p>
-          <h1>Match the Color</h1>
+          <p class="eyebrow">Neon Snake</p>
+          <h1>Swipe, Tap, or Use Arrow Keys</h1>
           <p class="subtitle">
-            Pick the color tile that matches the target RGB value. Rack up a streak
-            by guessing correctly!
+            Collect glowing orbs, grow your snake, and avoid hitting the walls or
+            yourself.
           </p>
         </div>
-        <button class="button" id="new-round">New Round</button>
+        <button class="button" id="restart">Restart</button>
       </header>
 
       <section class="board">
-        <div class="target">
-          <p class="label">Target RGB</p>
-          <div class="target-swatch" id="target-swatch"></div>
-          <p class="target-value" id="target-value">rgb(0, 0, 0)</p>
+        <div class="panel">
+          <p class="label">Score</p>
+          <p class="value" id="score">0</p>
         </div>
-
-        <div class="status">
-          <div>
-            <p class="label">Message</p>
-            <p id="message">Choose a tile to begin.</p>
-          </div>
-          <div class="score">
-            <div>
-              <p class="label">Score</p>
-              <p id="score">0</p>
-            </div>
-            <div>
-              <p class="label">Streak</p>
-              <p id="streak">0</p>
-            </div>
-            <div>
-              <p class="label">Best</p>
-              <p id="best">0</p>
-            </div>
-          </div>
+        <div class="panel">
+          <p class="label">Best</p>
+          <p class="value" id="best">0</p>
+        </div>
+        <div class="panel">
+          <p class="label">Speed</p>
+          <select id="speed">
+            <option value="160">Chill</option>
+            <option value="120" selected>Normal</option>
+            <option value="90">Fast</option>
+          </select>
         </div>
       </section>
 
-      <section class="tiles" id="tiles" aria-live="polite"></section>
+      <div class="game-area">
+        <canvas id="game" width="420" height="420"></canvas>
+        <p class="status" id="status">Press start or use your arrow keys.</p>
+      </div>
 
       <section class="controls">
-        <label class="control">
-          Difficulty
-          <select id="difficulty">
-            <option value="3">Easy (3 tiles)</option>
-            <option value="6" selected>Medium (6 tiles)</option>
-            <option value="9">Hard (9 tiles)</option>
-          </select>
-        </label>
-        <label class="control">
-          Hint Mode
-          <input type="checkbox" id="hint" />
-          <span class="hint">Show target swatch</span>
-        </label>
+        <button class="control-button" data-direction="up">▲</button>
+        <div class="control-row">
+          <button class="control-button" data-direction="left">◀</button>
+          <button class="control-button" data-direction="down">▼</button>
+          <button class="control-button" data-direction="right">▶</button>
+        </div>
       </section>
     </main>
 

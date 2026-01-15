@@ -1,8 +1,7 @@
-# RGB Quest
+# Neon Snake
 
-RGB Quest is a lightweight web-based color matching game. Match the RGB value to
-its correct color tile, build a streak, and challenge yourself with harder
-rounds.
+Neon Snake is a mobile-friendly snake game with touch buttons and keyboard
+controls. Collect glowing orbs to grow your snake and build your score.
 
 ## Play locally
 

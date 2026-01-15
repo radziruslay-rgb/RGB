@@ -1,103 +1,207 @@
-const tilesContainer = document.getElementById("tiles");
-const targetSwatch = document.getElementById("target-swatch");
-const targetValue = document.getElementById("target-value");
-const message = document.getElementById("message");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
-const streakEl = document.getElementById("streak");
 const bestEl = document.getElementById("best");
-const newRoundButton = document.getElementById("new-round");
-const difficultySelect = document.getElementById("difficulty");
-const hintToggle = document.getElementById("hint");
+const statusEl = document.getElementById("status");
+const speedSelect = document.getElementById("speed");
+const restartButton = document.getElementById("restart");
+const controlButtons = document.querySelectorAll(".control-button");
+
+const gridSize = 20;
+const tileCount = canvas.width / gridSize;
 
 const state = {
-  tiles: [],
-  answerIndex: 0,
+  snake: [],
+  direction: { x: 1, y: 0 },
+  nextDirection: { x: 1, y: 0 },
+  food: { x: 10, y: 10 },
   score: 0,
-  streak: 0,
   best: 0,
+  running: false,
+  timer: null,
 };
 
-const randomChannel = () => Math.floor(Math.random() * 256);
-
-const randomColor = () => {
-  const color = {
-    r: randomChannel(),
-    g: randomChannel(),
-    b: randomChannel(),
-  };
-
-  return {
-    ...color,
-    css: `rgb(${color.r}, ${color.g}, ${color.b})`,
-  };
+const neonGradient = () => {
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, "#6c7cff");
+  gradient.addColorStop(1, "#2fe6a5");
+  return gradient;
 };
 
-const buildTiles = (count) => {
-  state.tiles = Array.from({ length: count }, () => randomColor());
-  state.answerIndex = Math.floor(Math.random() * state.tiles.length);
+const resetSnake = () => {
+  state.snake = [
+    { x: 7, y: 10 },
+    { x: 6, y: 10 },
+    { x: 5, y: 10 },
+  ];
+  state.direction = { x: 1, y: 0 };
+  state.nextDirection = { x: 1, y: 0 };
 };
 
-const updateScoreboard = () => {
+const randomFood = () => {
+  let newFood;
+  do {
+    newFood = {
+      x: Math.floor(Math.random() * tileCount),
+      y: Math.floor(Math.random() * tileCount),
+    };
+  } while (state.snake.some((segment) => segment.x === newFood.x && segment.y === newFood.y));
+
+  state.food = newFood;
+};
+
+const updateScore = () => {
   scoreEl.textContent = state.score;
-  streakEl.textContent = state.streak;
   bestEl.textContent = state.best;
 };
 
-const updateTarget = () => {
-  const answer = state.tiles[state.answerIndex];
-  targetValue.textContent = answer.css;
-  targetSwatch.style.background = hintToggle.checked
-    ? answer.css
-    : "repeating-linear-gradient(135deg, rgba(255,255,255,0.2) 0 8px, transparent 8px 16px)";
+const setStatus = (text) => {
+  statusEl.textContent = text;
 };
 
-const renderTiles = () => {
-  tilesContainer.innerHTML = "";
+const drawBackground = () => {
+  ctx.fillStyle = "#0b1229";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  state.tiles.forEach((tile, index) => {
-    const button = document.createElement("button");
-    button.className = "tile";
-    button.style.background = tile.css;
-    button.setAttribute("aria-label", `Color tile ${tile.css}`);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+  for (let i = 0; i <= tileCount; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * gridSize, 0);
+    ctx.lineTo(i * gridSize, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i * gridSize);
+    ctx.lineTo(canvas.width, i * gridSize);
+    ctx.stroke();
+  }
+};
 
-    button.addEventListener("click", () => handleGuess(index, button));
+const drawFood = () => {
+  ctx.fillStyle = "#fcd34d";
+  ctx.shadowColor = "#fcd34d";
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(
+    state.food.x * gridSize + gridSize / 2,
+    state.food.y * gridSize + gridSize / 2,
+    gridSize / 3,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+  ctx.shadowBlur = 0;
+};
 
-    tilesContainer.appendChild(button);
+const drawSnake = () => {
+  ctx.fillStyle = neonGradient();
+  ctx.shadowColor = "rgba(108, 124, 255, 0.7)";
+  ctx.shadowBlur = 10;
+
+  state.snake.forEach((segment, index) => {
+    const radius = index === 0 ? 6 : 4;
+    const x = segment.x * gridSize + 2;
+    const y = segment.y * gridSize + 2;
+    const size = gridSize - 4;
+    ctx.beginPath();
+    ctx.roundRect(x, y, size, size, radius);
+    ctx.fill();
   });
+
+  ctx.shadowBlur = 0;
 };
 
-const handleGuess = (index, button) => {
-  const isCorrect = index === state.answerIndex;
+const draw = () => {
+  drawBackground();
+  drawFood();
+  drawSnake();
+};
 
-  if (isCorrect) {
-    state.score += 10;
-    state.streak += 1;
-    state.best = Math.max(state.best, state.streak);
-    message.textContent = "Nice! You matched the color.";
-    button.classList.add("correct");
-  } else {
-    state.score = Math.max(0, state.score - 5);
-    state.streak = 0;
-    message.textContent = "Not quite. Try another tile!";
-    button.classList.add("wrong");
+const hitWall = (head) => head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount;
+
+const hitSelf = (head) =>
+  state.snake.slice(1).some((segment) => segment.x === head.x && segment.y === head.y);
+
+const tick = () => {
+  state.direction = { ...state.nextDirection };
+  const head = { x: state.snake[0].x + state.direction.x, y: state.snake[0].y + state.direction.y };
+
+  if (hitWall(head) || hitSelf(head)) {
+    setStatus("Game over. Tap restart to play again.");
+    state.running = false;
+    return;
   }
 
-  updateScoreboard();
+  state.snake.unshift(head);
+
+  if (head.x === state.food.x && head.y === state.food.y) {
+    state.score += 10;
+    state.best = Math.max(state.best, state.score);
+    randomFood();
+    setStatus("Nice! Keep going.");
+  } else {
+    state.snake.pop();
+  }
+
+  updateScore();
+  draw();
 };
 
-const startRound = () => {
-  const count = Number.parseInt(difficultySelect.value, 10);
-  buildTiles(count);
-  renderTiles();
-  updateTarget();
-  message.textContent = "Choose the tile that matches the RGB value.";
+const start = () => {
+  if (state.timer) {
+    clearInterval(state.timer);
+  }
+  state.running = true;
+  state.timer = setInterval(tick, Number(speedSelect.value));
 };
 
-newRoundButton.addEventListener("click", startRound);
+const restart = () => {
+  resetSnake();
+  randomFood();
+  state.score = 0;
+  updateScore();
+  setStatus("Game on! Collect the glowing orb.");
+  draw();
+  start();
+};
 
-difficultySelect.addEventListener("change", startRound);
+const setDirection = (x, y) => {
+  if (!state.running) {
+    start();
+  }
 
-hintToggle.addEventListener("change", updateTarget);
+  if (state.direction.x === -x && state.direction.y === -y) {
+    return;
+  }
 
-startRound();
-updateScoreboard();
+  state.nextDirection = { x, y };
+};
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp") setDirection(0, -1);
+  if (event.key === "ArrowDown") setDirection(0, 1);
+  if (event.key === "ArrowLeft") setDirection(-1, 0);
+  if (event.key === "ArrowRight") setDirection(1, 0);
+});
+
+controlButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const direction = button.dataset.direction;
+    if (direction === "up") setDirection(0, -1);
+    if (direction === "down") setDirection(0, 1);
+    if (direction === "left") setDirection(-1, 0);
+    if (direction === "right") setDirection(1, 0);
+  });
+});
+
+restartButton.addEventListener("click", restart);
+
+speedSelect.addEventListener("change", () => {
+  if (state.running) {
+    start();
+  }
+});
+
+resetSnake();
+randomFood();
+updateScore();
+draw();
